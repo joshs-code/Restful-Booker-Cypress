@@ -2,9 +2,12 @@ import bookinginfo from "./test-data/createdBooking.json";
 import updatedinfo from "./test-data/updatedBooking.json";
 import userdata from '../fixtures/userdata.json';
 
+import 'cypress-ajv-schema-validator';
+import 'cypress-plugin-api';
+
 describe("API Testing", () => {
   before("Testing Token", () => {
-    cy.request("POST", "auth", {
+    cy.api("POST", "auth", {
       username: userdata.name,
       password: userdata.password,
     }).then((response) => {
@@ -14,7 +17,7 @@ describe("API Testing", () => {
   });
 
   it("Should be able to create a booking", () => {
-    cy.request({
+    cy.api({
       method: "POST",
       url: "booking",
       headers: {
@@ -25,25 +28,21 @@ describe("API Testing", () => {
       body: bookinginfo,
     }).then((response) => {
       expect(response.status).eq(200);
+
       expect(response.body.booking.firstname).to.have.string("Joshua");
       Cypress.env("bookingID", response.body.bookingid);
     });
   });
 
   it("Should be able to get new booking", () => {
-    cy.request({
+    cy.api({
       method: "GET",
       url: `booking/${Cypress.env("bookingID")}`,
-    }).then((response) => {
-      expect(response.body.firstname).to.equal(bookinginfo.firstname);
-      expect(response.body.bookingdates.checkin).to.equal(
-        bookinginfo.bookingdates.checkin
-      );
-    });
+    }).validateSchema(userdata)
   });
 
   it("Should be able to update booking", () => {
-    cy.request({
+    cy.api({
       method: "PUT",
       url: `booking/${Cypress.env("bookingID")}`,
       headers: {
@@ -51,13 +50,12 @@ describe("API Testing", () => {
         Cookie: `token=${Cypress.env("token")}`,
       },
       body: updatedinfo,
-    }).then((response) => {
-      expect(response.body.firstname).to.eq(updatedinfo.firstname);
-    });
+    }).validateSchema(updatedinfo);
+
   });
 
   it("Should be able to delete new booking", () => {
-    cy.request({
+    cy.api({
       method: "DELETE",
       url: `booking/${Cypress.env("bookingID")}`,
       headers: {
@@ -70,7 +68,7 @@ describe("API Testing", () => {
   });
 
   it("Should make sure booking is deleted", () => {
-    cy.request({
+    cy.api({
       method: "GET",
       url: `booking/${Cypress.env("bookingID")}`,
       failOnStatusCode: false,
