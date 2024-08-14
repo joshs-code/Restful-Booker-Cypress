@@ -1,11 +1,11 @@
 import bookinginfo from "./test-data/createdBooking.json";
 import updatedinfo from "./test-data/updatedBooking.json";
-import userdata from '../fixtures/userdata.json';
+import userdata from "../fixtures/userdata.json";
 
-import 'cypress-ajv-schema-validator';
-import 'cypress-plugin-api';
+import "cypress-ajv-schema-validator";
+import "cypress-plugin-api";
 
-describe("API Testing", () => {
+describe("Positive API Testing", () => {
   before("Testing Token", () => {
     cy.api("POST", "auth", {
       username: userdata.name,
@@ -35,10 +35,34 @@ describe("API Testing", () => {
   });
 
   it("Should be able to get new booking", () => {
+    /**
+     * Define the schema
+     */
+    const schema = {
+      firstname: { type: "string" },
+      lastname: { type: "string" },
+      totalprice: { type: "number" },
+      depositpaid: { type: "boolean" },
+      bookingdates: {
+        checkin: { type: "string" },
+        checkout: { type: "string" },
+      },
+      additionalneeds: { type: "string" },
+    };
+
     cy.api({
       method: "GET",
       url: `booking/${Cypress.env("bookingID")}`,
-    }).validateSchema(userdata)
+
+      /**
+       * Validating against schema
+       */
+    })
+      .validateSchema(schema)
+      .then((response) => {
+        expect(response.body.firstname).eq(bookinginfo.firstname);
+        expect(response.status).eq(200);
+      });
   });
 
   it("Should be able to update booking", () => {
@@ -50,8 +74,11 @@ describe("API Testing", () => {
         Cookie: `token=${Cypress.env("token")}`,
       },
       body: updatedinfo,
-    }).validateSchema(updatedinfo);
-
+    })
+      .then((response) => {
+        expect(response.status).eq(200);
+        expect(response.body.firstname).eq(updatedinfo.firstname);
+      });
   });
 
   it("Should be able to delete new booking", () => {
@@ -75,5 +102,43 @@ describe("API Testing", () => {
     }).as("booking");
 
     cy.get("@booking").its("status").should("eq", 404);
+  });
+});
+
+describe("Negative API Testing", () => {
+  before("Testing Token", () => {
+    cy.api("POST", "auth", {
+      username: userdata.name,
+      password: userdata.password,
+    }).then((response) => {
+      // Saving Token in Cypress Env Variable instead of global variable
+      Cypress.env("token", response.body.token);
+    });
+  });
+
+  it("Should not be able to create booking with invalid first name", () => {
+    cy.api({
+      method: "POST",
+      url: "booking",
+      failOnStatusCode: false,
+      headers: {
+        "Content-Type": "application/json",
+         Cookie: `token=${Cypress.env("token")}`,
+      },
+      body: {
+        "firstname": 111,
+        "lastname": "Brown",
+        "totalprice": 111,
+        "depositpaid": true,
+        "bookingdates": {
+            "checkin": "2018-01-01",
+            "checkout": "2019-01-01"
+        },
+        "additionalneeds": "Breakfast"
+    },
+    }).then( (response) => {
+      expect(response.status).eq(500);
+    })
+
   });
 });
